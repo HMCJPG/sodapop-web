@@ -7,6 +7,8 @@ import { Card } from "@/components/Card";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useUser } from "@/context/UserContext";
+import ImageSelector from "@/components/ImageSelector";
+import { DEFAULT_EVENT_IMAGES } from "@/lib/defaultEventImages";
 
 export default function CreateEventPage() {
     const router = useRouter();
@@ -24,7 +26,7 @@ export default function CreateEventPage() {
         date: "",
         time: "",
         category: "Social",
-        imageUrl: "",
+        imageUrl: DEFAULT_EVENT_IMAGES[0],
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -71,7 +73,7 @@ export default function CreateEventPage() {
             city: city || "City"
         },
         // Use default image if empty, matching Provider logic for preview consistency
-        imageUrl: formData.imageUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=1000",
+        imageUrl: formData.imageUrl || DEFAULT_EVENT_IMAGES[0],
     };
 
     if (userLoading) {
@@ -218,16 +220,11 @@ export default function CreateEventPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                        <input
-                            type="url"
-                            name="imageUrl"
-                            value={formData.imageUrl}
-                            onChange={handleChange}
-                            placeholder="https://... (Optional)"
-                            className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none transition-all"
+                        <label className="block text-sm font-medium text-gray-700 mb-3">Choose an Image</label>
+                        <ImageSelector
+                            selectedImage={formData.imageUrl}
+                            onSelect={(url) => setFormData(prev => ({ ...prev, imageUrl: url }))}
                         />
-                        <p className="text-xs text-gray-400 mt-1">Leave blank for a default image.</p>
                     </div>
 
                     <button
