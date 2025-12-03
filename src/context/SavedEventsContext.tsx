@@ -2,57 +2,73 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Event } from "@/types";
+import { useUser } from "./UserContext";
+import { getEventProvider } from "@/services/events";
 
 interface SavedEventsContextType {
     savedEvents: Event[];
     saveEvent: (event: Event) => void;
     removeEvent: (eventId: string) => void;
     isSaved: (eventId: string) => boolean;
+    loading: boolean;
 }
 
 const SavedEventsContext = createContext<SavedEventsContextType | undefined>(undefined);
 
 export function SavedEventsProvider({ children }: { children: React.ReactNode }) {
+    const { user, saveEvent: userSaveEvent, unsaveEvent: userUnsaveEvent } = useUser();
     const [savedEvents, setSavedEvents] = useState<Event[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    // Load from local storage on mount
+    // Sync savedEvents with user.savedEventIds
     useEffect(() => {
-        if (typeof window !== "undefined") {
-            const stored = localStorage.getItem("savedEvents");
-            if (stored) {
+        async function fetchSavedEvents() {
+            if (!user.savedEventIds || user.savedEventIds.length === 0) {
+                setSavedEvents([]);
+                setLoading(false);
+                return;
+            }
+
+            setLoading(true);
+            const provider = getEventProvider();
+            const events: Event[] = [];
+
+            // Fetch each event by ID
+            // Optimization: In a real app, we'd want a bulk fetch method (getEventsByIds)
+            for (const id of user.savedEventIds) {
                 try {
-                    setSavedEvents(JSON.parse(stored));
-                } catch (e) {
-                    console.error("Failed to parse saved events", e);
+                    const event = await provider.getEvent(id);
+                    if (event) {
+                        events.push(event);
+                    }
+                } catch (error) {
+                    console.error(`Failed to fetch event ${id}`, error);
                 }
             }
-        }
-    }, []);
 
-    // Save to local storage whenever it changes
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            localStorage.setItem("savedEvents", JSON.stringify(savedEvents));
+            setSavedEvents(events);
+            setLoading(false);
         }
-    }, [savedEvents]);
+
+        fetchSavedEvents();
+    }, [user.savedEventIds]);
 
     const saveEvent = (event: Event) => {
-        setSavedEvents((prev) => {
-            if (prev.some((e) => e.id === event.id)) return prev;
-            return [...prev, event];
-        });
+        // Optimistic update (optional, but good for UI responsiveness)
+        // For now, we rely on the useEffect to sync back from UserContext
+        userSaveEvent(event.id);
     };
 
     const removeEvent = (eventId: string) => {
-        setSavedEvents((prev) => prev.filter((e) => e.id !== eventId));
+        userUnsaveEvent(eventId);
     };
 
     const isSaved = (eventId: string) => {
-        return savedEvents.some((e) => e.id === eventId);
+        return user.savedEventIds?.includes(eventId) || false;
     };
 
     return (
-        <SavedEventsContext.Provider value={{ savedEvents, saveEvent, removeEvent, isSaved }}>
+        <SavedEventsContext.Provider value={{ savedEvents, saveEvent, removeEvent, isSaved, loading }}>
             {children}
         </SavedEventsContext.Provider>
     );

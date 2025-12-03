@@ -4,11 +4,12 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { User } from "@/types";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from "firebase/firestore";
 
 interface UserContextType {
     user: User;
     saveEvent: (eventId: string) => void;
+    unsaveEvent: (eventId: string) => void;
     passEvent: (eventId: string) => void;
     trackCreatedEvent: (eventId: string) => void;
     loading: boolean;
@@ -146,6 +147,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const unsaveEvent = async (eventId: string) => {
+        if (!USE_FIREBASE) {
+            // Mock mode: use local state
+            setUser((prev) => {
+                return { ...prev, savedEventIds: prev.savedEventIds.filter(id => id !== eventId) };
+            });
+            return;
+        }
+
+        // Firebase mode: update Firestore
+        try {
+            const userDocRef = doc(db, "users", user.id);
+            await updateDoc(userDocRef, {
+                savedEventIds: arrayRemove(eventId),
+            });
+        } catch (error) {
+            console.error("Error unsaving event:", error);
+        }
+    };
+
     const passEvent = async (eventId: string) => {
         if (!USE_FIREBASE) {
             // Mock mode: use local state
@@ -189,7 +210,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <UserContext.Provider value={{ user, saveEvent, passEvent, trackCreatedEvent, loading }}>
+        <UserContext.Provider value={{ user, saveEvent, unsaveEvent, passEvent, trackCreatedEvent, loading }}>
             {children}
         </UserContext.Provider>
     );
